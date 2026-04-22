@@ -1,0 +1,50 @@
+Demystifying Notification Fatigue 
+ A mixed-methods diary study on user behavior towards frequent notifications 
+~ Shivam Jha 
+
+Problem 
+Users are overwhelmed by notifications and often ignore or dismiss them, but 
+the reasons behind these behaviors are not well understood. 
+Goal 
+To identify what drives users to open, ignore, or dismiss notifications and 
+understand how importance and context influence these decisions. 
+A diary-based study using Google Forms, followed by data cleaning, 
+tagging, and pivot-based analysis to uncover behavioral patterns. 
+ Methodology 
+
+“The vast majority of alerts do not warrant 
+immediate action. Because of sheer volume, users 
+have developed a habit of defaulting to "ignore" or 
+"mass-clear" simply to protect their digital space.” 
+Users meaningfully engage with  
+only ~34%  of the notifications they 
+receive. 
+ ~A Culture of Selective Engagement 
+What Drives Clicks:  Engagement is reserved for clear utility or safety. "Needed Response" and "Trusted Sender" yield the highest 
+proportion of opens. 
+100% of "Too Frequent" and 80% of  
+"Irrelevant"  alerts were instantly 
+ignored or cleared. 
+
+~The Cost of Missing Context 
+“When users do not immediately grasp why a system is pinging them, it forces unnecessary cognitive load. This ambiguity leads to 
+highly fractured, unpredictable behavior.” Over a third of all notifications fail to  
+communicate  their basic premise to 
+the user. 
+
+~The Anti-Pattern of High Engagement High engagement  for important 
+notification through maintaining 
+relevancy filters. 
+“As it was urgent for me so it 
+was important” 
+~Rutuja 
+Systemic Fixes for Attention 
+Architecture 
+Context-First Payloads 
+Strict Relevance Batching 
+Granular Controls Push critical/user-triggered alerts in real-time.  Bundle algorithmic or low-value updates into silent, 
+scheduled "Daily Digests." 
+Inject mandatory "Reason for Alert"  metadata into subtitles (e.g., "Action Required") to 
+eliminate ambiguity and anxiety clicks. 
+Replace binary system-level On/Off switches with user-defined preference logic, allowing users to 
+build their own relevance filters. 
