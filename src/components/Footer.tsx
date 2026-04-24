@@ -85,7 +85,7 @@ export default function Footer() {
           Ready to engineer better human experiences?
         </h2>
         <a
-          href="mailto:shivamjha@example.com"
+          href="mailto:mailshivamjha007@gmail.com"
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -171,13 +171,15 @@ export default function Footer() {
           }}
         >
           {[
-            { label: "LinkedIn", href: "#" },
-            { label: "GitHub", href: "#" },
-            { label: "Resume", href: "#" },
+            { label: "LinkedIn", href: "https://www.linkedin.com/in/shivam-jha-a59782291/" },
+            { label: "GitHub", href: "https://github.com/GH-Shivam007" },
+            { label: "Resume", href: "https://drive.google.com/file/d/1j7XPLRPmC7sJvYLvP3tZr0kB8spK963_/view?usp=sharing" },
           ].map((link) => (
             <a
               key={link.label}
               href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 color: "rgba(255,255,255,0.5)",
                 cursor: "none",

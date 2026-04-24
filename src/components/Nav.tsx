@@ -105,7 +105,7 @@ export function Nav() {
 
         {/* CTA */}
         <a
-          href="mailto:shivamjha@example.com"
+          href="mailto:mailshivamjha007@gmail.com"
           className="hide-mobile"
           style={{
             fontFamily: "var(--font-jetbrains)",
