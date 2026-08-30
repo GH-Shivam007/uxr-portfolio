@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
+import { useIsMobile, useIsLowEnd } from "./useIsMobile";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -11,10 +12,28 @@ if (typeof window !== "undefined") {
 
 export default function BlockchainCrystal() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
+  const isLowEnd = useIsLowEnd();
 
   useEffect(() => {
     if (!containerRef.current) return;
-    containerRef.current.innerHTML = ""; // Prevent duplicate canvases
+
+    // On mobile or low-end devices, show CSS-only crystal fallback
+    if (isMobile || isLowEnd) {
+      containerRef.current.innerHTML = "";
+      const fallback = document.createElement("div");
+      fallback.style.cssText =
+        "width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;";
+      const crystal = document.createElement("div");
+      crystal.className = "css-crystal";
+      fallback.appendChild(crystal);
+      containerRef.current.appendChild(fallback);
+      return () => {
+        if (containerRef.current) containerRef.current.innerHTML = "";
+      };
+    }
+
+    containerRef.current.innerHTML = "";
 
     const container = containerRef.current;
     const width = container.clientWidth || window.innerWidth;
@@ -26,7 +45,7 @@ export default function BlockchainCrystal() {
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
 
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Capped at 1.5
     container.appendChild(renderer.domElement);
 
     // Material
@@ -45,10 +64,11 @@ export default function BlockchainCrystal() {
     const crystal = new THREE.Mesh(geometry, material);
     scene.add(crystal);
 
-    // Shards
+    // Shards — reduced count for better performance
     const shards: THREE.Mesh[] = [];
+    const shardCount = 40;
     const shardGeo = new THREE.TetrahedronGeometry(0.3);
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < shardCount; i++) {
       const shard = new THREE.Mesh(shardGeo, material);
       shard.position.set(
         (Math.random() - 0.5) * 2,
@@ -79,13 +99,12 @@ export default function BlockchainCrystal() {
     // ScrollTrigger — crystal stays intact for the first 40% of scroll
     const trig = ScrollTrigger.create({
       trigger: container,
-      start: "top top",        // Only starts when section fills the viewport
-      end: "bottom -50%",      // Extended range for slower progression
+      start: "top top",
+      end: "bottom -50%",
       scrub: 1.5,
       onUpdate: (self) => {
         const p = self.progress;
         if (p > 0.4) {
-          // Remap progress: 0.4→1.0 becomes 0→1 for the shatter
           const shatterProgress = (p - 0.4) / 0.6;
           crystal.visible = false;
           const ease = gsap.parseEase("power2.out")(shatterProgress);
@@ -142,7 +161,7 @@ export default function BlockchainCrystal() {
       shardGeo.dispose();
       material.dispose();
     };
-  }, []);
+  }, [isMobile, isLowEnd]);
 
   return (
     <div

@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
+import { useIsMobile } from "./useIsMobile";
 
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -20,6 +22,15 @@ export function Nav() {
     { href: "#deck", label: "Case Study" },
     { href: "#lab", label: "Lab" },
   ];
+
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault();
+    const targetId = href.replace("#", "");
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   return (
     <motion.header
@@ -57,13 +68,14 @@ export function Nav() {
         {/* Logo */}
         <a
           href="#top"
+          onClick={(e) => handleNavClick(e, "#top")}
           style={{
             fontFamily: "var(--font-jetbrains)",
             fontSize: "0.8rem",
             letterSpacing: "0.08em",
             textTransform: "uppercase",
             fontWeight: 600,
-            cursor: "none",
+            cursor: isMobile ? "auto" : "none",
           }}
         >
           Shivam<span style={{ color: "var(--accent-color)" }}>.</span>Jha
@@ -85,10 +97,11 @@ export function Nav() {
             <a
               key={link.href}
               href={link.href}
+              onClick={(e) => handleNavClick(e, link.href)}
               style={{
                 color: "var(--text-secondary)",
                 position: "relative",
-                cursor: "none",
+                cursor: isMobile ? "auto" : "none",
                 transition: "color 0.3s ease",
               }}
               onMouseEnter={(e) => {
@@ -116,7 +129,7 @@ export function Nav() {
             border: "1px solid rgba(15, 76, 129, 0.3)",
             padding: "0.5rem 1.2rem",
             borderRadius: "6px",
-            cursor: "none",
+            cursor: isMobile ? "auto" : "none",
             transition: "all 0.3s ease",
           }}
           onMouseEnter={(e) => {

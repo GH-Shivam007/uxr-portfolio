@@ -3,99 +3,139 @@
 import React, { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
+import { useIsMobile } from "./useIsMobile";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
 }
 
+/**
+ * Slot-machine style counter that spins through digits
+ */
+function SlotCounter({
+  target,
+  triggered,
+  prefix = "~",
+  suffix = "%",
+}: {
+  target: number;
+  triggered: boolean;
+  prefix?: string;
+  suffix?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!triggered || !ref.current) return;
+
+    const counter = { val: 0 };
+    gsap.to(counter, {
+      val: target,
+      duration: 2.5,
+      ease: "power2.out",
+      onUpdate: () => {
+        if (ref.current) {
+          ref.current.textContent = `${prefix}${Math.round(counter.val)}${suffix}`;
+        }
+      },
+    });
+  }, [triggered, target, prefix, suffix]);
+
+  return (
+    <div
+      ref={ref}
+      className="mono gradient-accent-text"
+      style={{
+        fontSize: "clamp(2rem, 4vw, 3.5rem)",
+        fontWeight: "bold",
+      }}
+    >
+      {prefix}0{suffix}
+    </div>
+  );
+}
+
 export default function ResearchDeck() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const slidesContainerRef = useRef<HTMLDivElement>(null);
   const chartPathRef = useRef<SVGPathElement>(null);
-  const statRef = useRef<HTMLDivElement>(null);
-  const [statCounted, setStatCounted] = useState(false);
+  const [statTriggered, setStatTriggered] = useState(false);
+  const isMobile = useIsMobile();
 
-  const blocks = Array.from({ length: 131 }, (_, i) => ({
+  // Reduced block count for performance
+  const blocks = Array.from({ length: 60 }, (_, i) => ({
     id: i,
-    isNoise: i >= 45,
+    isNoise: i >= 20,
   }));
 
   useEffect(() => {
-    if (!containerRef.current || !slidesContainerRef.current) return;
+    if (!containerRef.current) return;
 
     const ctx = gsap.context(() => {
-      const slides = gsap.utils.toArray<HTMLElement>(
-        slidesContainerRef.current!.children
-      );
+      const cards = gsap.utils.toArray<HTMLElement>(".narrative-card");
 
-      const pinTl = gsap.to(slides, {
-        xPercent: -100 * (slides.length - 1),
-        ease: "none",
-        scrollTrigger: {
-          trigger: containerRef.current,
-          pin: true,
-          scrub: 1.5,
-          snap: 1 / (slides.length - 1),
-          end: () => "+=" + window.innerWidth * slides.length,
+      // ─── NARRATIVE STACK: Sticky cards that peel away ───
+      cards.forEach((card, i) => {
+        if (i === cards.length - 1) return; // Last card doesn't peel
+
+        // Subtle scale-down as next card overlaps
+        ScrollTrigger.create({
+          trigger: card,
+          start: "top top",
+          end: "bottom top",
+          scrub: true,
+          pin: false,
           onUpdate: (self) => {
-            const bar = document.getElementById("deck-progress");
-            if (bar) bar.style.width = `${self.progress * 100}%`;
+            const progress = self.progress;
+            // Card scales down and gets a shadow as it stacks underneath
+            const scale = 1 - progress * 0.05;
+            const brightness = 1 - progress * 0.3;
+            card.style.transform = `scale(${scale})`;
+            card.style.filter = `brightness(${brightness})`;
           },
-        },
+        });
       });
 
-      // Data grid — ripple in, then triage
-      gsap.set(".data-block", { scale: 0, opacity: 0 });
+      // ─── Data grid — wave ripple ───
+      const dataBlocks = gsap.utils.toArray<HTMLElement>(".data-block");
+      if (dataBlocks.length > 0) {
+        gsap.set(dataBlocks, { scale: 0, opacity: 0 });
 
-      ScrollTrigger.create({
-        trigger: slides[1],
-        containerAnimation: pinTl,
-        start: "left 80%",
-        end: "left 40%",
-        onEnter: () => {
-          // Animated stat counter
-          if (statRef.current && !statCounted) {
-            setStatCounted(true);
-            const counter = { val: 0 };
-            gsap.to(counter, {
-              val: 34,
-              duration: 2,
-              ease: "power2.out",
-              onUpdate: () => {
-                if (statRef.current) {
-                  statRef.current.textContent = `~${Math.round(counter.val)}%`;
-                }
+        ScrollTrigger.create({
+          trigger: ".data-grid-container",
+          start: "top 70%",
+          once: true,
+          onEnter: () => {
+            setStatTriggered(true);
+
+            // Wave ripple from top-left (organic feel)
+            gsap.to(dataBlocks, {
+              scale: 1,
+              opacity: 1,
+              duration: 0.3,
+              stagger: {
+                amount: 0.8,
+                from: "start",
+                grid: [6, 10],
+                ease: "power2.out",
+              },
+              ease: "back.out(1.4)",
+              onComplete: () => {
+                // Triage: fade out noise
+                gsap.to(".data-block-noise", {
+                  opacity: 0.08,
+                  scale: 0.6,
+                  duration: 0.6,
+                  stagger: { amount: 0.8, from: "random" },
+                  ease: "power2.inOut",
+                  delay: 0.3,
+                });
               },
             });
-          }
+          },
+        });
+      }
 
-          // Ripple in all blocks first
-          gsap.to(".data-block", {
-            scale: 1,
-            opacity: 1,
-            duration: 0.3,
-            stagger: { amount: 0.6, from: "center", grid: [11, 12] },
-            ease: "back.out(1.7)",
-            onComplete: () => {
-              // Then triage: fade out the noise
-              gsap.to(".data-block-noise", {
-                opacity: 0.08,
-                scale: 0.6,
-                duration: 0.5,
-                stagger: { amount: 1, from: "random" },
-                ease: "power2.inOut",
-                delay: 0.3,
-              });
-            },
-          });
-        },
-        onLeaveBack: () => {
-          gsap.set(".data-block", { scale: 0, opacity: 0 });
-          gsap.set(".data-block-noise", { opacity: 1, scale: 1 });
-        },
-      });
-
-      // SVG Path draw
+      // ─── Chart SVG path draw with trailing glow ───
       if (chartPathRef.current) {
         const length = chartPathRef.current.getTotalLength();
         gsap.set(chartPathRef.current, {
@@ -103,30 +143,36 @@ export default function ResearchDeck() {
           strokeDashoffset: length,
         });
 
-        gsap.to(chartPathRef.current, {
-          strokeDashoffset: 0,
-          ease: "power2.inOut",
-          scrollTrigger: {
-            trigger: slides[2],
-            containerAnimation: pinTl,
-            start: "left center",
-            end: "center center",
-            scrub: 1.5,
+        ScrollTrigger.create({
+          trigger: ".chart-container",
+          start: "top 60%",
+          end: "center 30%",
+          scrub: 1,
+          onUpdate: (self) => {
+            if (chartPathRef.current) {
+              chartPathRef.current.style.strokeDashoffset = String(
+                length * (1 - self.progress)
+              );
+              // Intensify glow as line draws
+              const glowIntensity = 4 + self.progress * 8;
+              chartPathRef.current.style.filter = `drop-shadow(0 0 ${glowIntensity}px var(--accent-glow))`;
+            }
           },
         });
       }
 
-      // Systemic Fixes staggered reveal
-      gsap.set(".fix-card", { opacity: 0, y: 40 });
+      // ─── Fix cards stagger reveal ───
+      gsap.set(".fix-card", { opacity: 0, y: 40, scale: 0.95 });
       ScrollTrigger.create({
-        trigger: slides[3],
-        containerAnimation: pinTl,
-        start: "left center",
+        trigger: ".fixes-container",
+        start: "top 65%",
+        once: true,
         onEnter: () => {
           gsap.to(".fix-card", {
             opacity: 1,
             y: 0,
-            stagger: 0.15,
+            scale: 1,
+            stagger: 0.12,
             duration: 0.8,
             ease: "power3.out",
           });
@@ -134,7 +180,7 @@ export default function ResearchDeck() {
       });
     }, containerRef);
 
-    return () => ctx.revert(); // Only kills THIS context's triggers
+    return () => ctx.revert();
   }, []);
 
   return (
@@ -142,14 +188,23 @@ export default function ResearchDeck() {
       id="deck"
       ref={containerRef}
       style={{
-        height: "100vh",
-        overflow: "hidden",
         backgroundColor: "var(--bg-primary)",
         position: "relative",
       }}
     >
-      {/* Progress Header */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 20 }}>
+      {/* Progress Header — now static at top of section */}
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 20,
+          backgroundColor: "rgba(250, 250, 250, 0.9)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+        }}
+      >
         <div
           style={{
             display: "flex",
@@ -165,113 +220,85 @@ export default function ResearchDeck() {
           <span style={{ color: "var(--text-tertiary)" }}>
             Research · Demystifying Notification Fatigue
           </span>
-          <span style={{ color: "var(--text-secondary)" }}>
-            01 — 04
-          </span>
+          <span style={{ color: "var(--text-secondary)" }}>01 — 04</span>
         </div>
-        <div style={{ height: "1px", backgroundColor: "var(--hairline)" }}>
-          <div
-            id="deck-progress"
+        <div style={{ height: "1px", backgroundColor: "var(--hairline)" }} />
+      </div>
+
+      {/* ─── CARD 1: Problem ─── */}
+      <div className="narrative-card" style={{ minHeight: "100vh", padding: "6vh 8vw" }}>
+        <div
+          className="glass-panel"
+          style={{
+            padding: isMobile ? "2rem" : "3rem",
+            width: "100%",
+            maxWidth: "750px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1.5rem",
+          }}
+        >
+          <div className="data-label">Case Study · 01</div>
+          <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.5rem)" }}>
+            Demystifying Notification Fatigue
+          </h2>
+          <p
             style={{
-              height: "2px",
-              width: "0%",
-              background: "var(--gradient-accent)",
-              transformOrigin: "left",
-              transition: "width 0.1s linear",
+              color: "var(--accent-color)",
+              fontSize: "0.85rem",
+              fontFamily: "var(--font-inter)",
             }}
-          />
+          >
+            A mixed-methods diary study on user behavior towards frequent
+            notifications
+          </p>
+          <div style={{ height: "1px", backgroundColor: "var(--hairline)" }} />
+          {[
+            {
+              title: "Problem",
+              text: "Users are overwhelmed by notifications and often ignore or dismiss them, but the reasons behind these behaviors are not well understood.",
+            },
+            {
+              title: "Goal",
+              text: "To identify what drives users to open, ignore, or dismiss notifications and understand how importance and context influence these decisions.",
+            },
+            {
+              title: "Methodology",
+              text: 'A diary-based study using Google Forms, followed by data cleaning, tagging, and pivot-based analysis to uncover behavioral patterns.',
+            },
+          ].map((item) => (
+            <div key={item.title}>
+              <h4
+                style={{
+                  fontSize: "1rem",
+                  marginBottom: "0.4rem",
+                  color: "var(--text-primary)",
+                }}
+              >
+                {item.title}
+              </h4>
+              <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem" }}>
+                {item.text}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
 
+      {/* ─── CARD 2: Selective Engagement + Grid ─── */}
       <div
-        ref={slidesContainerRef}
-        style={{
-          display: "flex",
-          width: "400vw",
-          height: "100%",
-          position: "relative",
-          zIndex: 2,
-        }}
+        className="narrative-card data-grid-container"
+        style={{ minHeight: "100vh", padding: "6vh 8vw" }}
       >
-        {/* SLIDE 1: Problem */}
         <div
           style={{
-            width: "100vw",
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "0 8vw",
-          }}
-        >
-          <div
-            className="glass-panel"
-            style={{
-              padding: "3rem",
-              width: "100%",
-              maxWidth: "750px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "1.5rem",
-            }}
-          >
-            <div className="data-label">Case Study · 01</div>
-            <h2 style={{ fontSize: "clamp(1.8rem, 3vw, 2.5rem)" }}>
-              Demystifying Notification Fatigue
-            </h2>
-            <p
-              style={{
-                color: "var(--accent-color)",
-                fontSize: "0.85rem",
-                fontFamily: "var(--font-inter)",
-              }}
-            >
-              A mixed-methods diary study on user behavior towards frequent
-              notifications
-            </p>
-            <div style={{ height: "1px", backgroundColor: "var(--hairline)" }} />
-            {[
-              {
-                title: "Problem",
-                text: "Users are overwhelmed by notifications and often ignore or dismiss them, but the reasons behind these behaviors are not well understood.",
-              },
-              {
-                title: "Goal",
-                text: "To identify what drives users to open, ignore, or dismiss notifications and understand how importance and context influence these decisions.",
-              },
-              {
-                title: "Methodology",
-                text: "A diary-based study using Google Forms, followed by data cleaning, tagging, and pivot-based analysis to uncover behavioral patterns.",
-              },
-            ].map((item) => (
-              <div key={item.title}>
-                <h4
-                  style={{
-                    fontSize: "1rem",
-                    marginBottom: "0.4rem",
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  {item.title}
-                </h4>
-                <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem" }}>
-                  {item.text}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* SLIDE 2: Selective Engagement + Grid */}
-        <div
-          style={{
-            width: "100vw",
-            height: "100%",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             gap: "clamp(2rem, 4vw, 4rem)",
-            padding: "0 8vw",
+            flexWrap: isMobile ? "wrap" : "nowrap",
+            width: "100%",
+            maxWidth: "1000px",
           }}
         >
           <div
@@ -282,6 +309,7 @@ export default function ResearchDeck() {
               display: "flex",
               flexDirection: "column",
               gap: "1.25rem",
+              flex: "1 1 auto",
             }}
           >
             <div className="data-label">Finding · 02</div>
@@ -298,35 +326,27 @@ export default function ResearchDeck() {
                 fontSize: "0.95rem",
               }}
             >
-              "The vast majority of alerts do not warrant immediate action.
-              Users have developed a habit of defaulting to 'ignore' or
-              'mass-clear' simply to protect their digital space."
+              &quot;The vast majority of alerts do not warrant immediate action.
+              Users have developed a habit of defaulting to &apos;ignore&apos; or
+              &apos;mass-clear&apos; simply to protect their digital space.&quot;
             </blockquote>
-            <div
-              ref={statRef}
-              className="mono gradient-accent-text"
-              style={{
-                fontSize: "clamp(2rem, 4vw, 3.5rem)",
-                fontWeight: "bold",
-              }}
-            >
-              ~0%
-            </div>
+            <SlotCounter target={34} triggered={statTriggered} />
             <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem" }}>
               Users meaningfully engage with only ~34% of notifications.
-              100% of "Too Frequent" and 80% of "Irrelevant" alerts were
+              100% of &quot;Too Frequent&quot; and 80% of &quot;Irrelevant&quot; alerts were
               instantly dismissed.
             </p>
           </div>
 
-          {/* Data Grid */}
+          {/* Data Grid — reduced to 60 blocks */}
           <div
             className="hide-mobile"
             style={{
-              width: "clamp(300px, 30vw, 450px)",
+              width: "clamp(250px, 25vw, 350px)",
               display: "grid",
-              gridTemplateColumns: "repeat(12, 1fr)",
+              gridTemplateColumns: "repeat(10, 1fr)",
               gap: "3px",
+              flexShrink: 0,
             }}
           >
             {blocks.map((block) => (
@@ -344,22 +364,27 @@ export default function ResearchDeck() {
             ))}
           </div>
         </div>
+      </div>
 
-        {/* SLIDE 3: Cost of Missing Context */}
+      {/* ─── CARD 3: Cost of Missing Context ─── */}
+      <div
+        className="narrative-card chart-container"
+        style={{ minHeight: "100vh", padding: "6vh 8vw" }}
+      >
         <div
           style={{
-            width: "100vw",
-            height: "100%",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             gap: "clamp(2rem, 4vw, 4rem)",
-            padding: "0 8vw",
+            flexWrap: isMobile ? "wrap" : "nowrap",
+            width: "100%",
+            maxWidth: "1000px",
           }}
         >
           <div
             className="glass-panel"
-            style={{ padding: "2.5rem", maxWidth: "480px" }}
+            style={{ padding: "2.5rem", maxWidth: "480px", flex: "1 1 auto" }}
           >
             <div className="data-label" style={{ marginBottom: "1rem" }}>
               Finding · 03
@@ -383,9 +408,9 @@ export default function ResearchDeck() {
                 fontSize: "0.95rem",
               }}
             >
-              "When users do not immediately grasp why a system is pinging
+              &quot;When users do not immediately grasp why a system is pinging
               them, it forces unnecessary cognitive load. This ambiguity leads
-              to highly fractured, unpredictable behavior."
+              to highly fractured, unpredictable behavior.&quot;
             </blockquote>
             <p
               style={{
@@ -409,7 +434,7 @@ export default function ResearchDeck() {
                 alignItems: "center",
                 justifyContent: "center",
                 margin: "0 auto",
-                cursor: "none",
+                cursor: isMobile ? "auto" : "none",
               }}
             >
               <span
@@ -426,7 +451,7 @@ export default function ResearchDeck() {
             </div>
           </div>
 
-          {/* Chart */}
+          {/* Chart with trailing glow */}
           <div
             className="glass-panel hide-mobile"
             style={{
@@ -435,6 +460,7 @@ export default function ResearchDeck() {
               aspectRatio: "1",
               display: "flex",
               flexDirection: "column",
+              flexShrink: 0,
             }}
           >
             <h3
@@ -499,79 +525,75 @@ export default function ResearchDeck() {
             </svg>
           </div>
         </div>
+      </div>
 
-        {/* SLIDE 4: Systemic Fixes */}
+      {/* ─── CARD 4: Systemic Fixes ─── */}
+      <div
+        className="narrative-card fixes-container"
+        style={{ minHeight: "100vh", padding: "6vh 8vw" }}
+      >
         <div
-          style={{
-            width: "100vw",
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "0 8vw",
-          }}
+          className="glass-panel"
+          style={{ padding: isMobile ? "2rem" : "3rem", maxWidth: "950px", width: "100%" }}
         >
-          <div
-            className="glass-panel"
-            style={{ padding: "3rem", maxWidth: "950px", width: "100%" }}
+          <div className="data-label" style={{ marginBottom: "0.75rem", textAlign: "center" }}>
+            Recommendations · 04
+          </div>
+          <h2
+            style={{
+              fontSize: "clamp(1.6rem, 2.5vw, 2.2rem)",
+              marginBottom: "2.5rem",
+              textAlign: "center",
+            }}
           >
-            <div className="data-label" style={{ marginBottom: "0.75rem", textAlign: "center" }}>
-              Recommendations · 04
-            </div>
-            <h2
-              style={{
-                fontSize: "clamp(1.6rem, 2.5vw, 2.2rem)",
-                marginBottom: "2.5rem",
-                textAlign: "center",
-              }}
-            >
-              Systemic Fixes for Attention Architecture
-            </h2>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                gap: "2rem",
-              }}
-            >
-              {[
-                {
-                  num: "01",
-                  title: "Context-First Payloads",
-                  text: 'Inject mandatory "Reason for Alert" metadata into subtitles (e.g., "Action Required") to eliminate ambiguity.',
-                },
-                {
-                  num: "02",
-                  title: "Strict Relevance Batching",
-                  text: 'Push critical alerts in real-time. Bundle low-value updates into silent, scheduled "Daily Digests."',
-                },
-                {
-                  num: "03",
-                  title: "Granular Controls",
-                  text: "Replace binary On/Off switches with user-defined preference logic for personal relevance filters.",
-                },
-              ].map((fix) => (
-                <div key={fix.num} className="fix-card">
-                  <div
-                    className="mono"
-                    style={{
-                      fontSize: "0.7rem",
-                      color: "var(--accent-color)",
-                      marginBottom: "0.75rem",
-                      opacity: 0.6,
-                    }}
-                  >
-                    {fix.num}
-                  </div>
-                  <h4 style={{ fontSize: "1.05rem", marginBottom: "0.6rem" }}>
-                    {fix.title}
-                  </h4>
-                  <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem" }}>
-                    {fix.text}
-                  </p>
+            Systemic Fixes for Attention Architecture
+          </h2>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile
+                ? "1fr"
+                : "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "2rem",
+            }}
+          >
+            {[
+              {
+                num: "01",
+                title: "Context-First Payloads",
+                text: 'Inject mandatory "Reason for Alert" metadata into subtitles (e.g., "Action Required") to eliminate ambiguity.',
+              },
+              {
+                num: "02",
+                title: "Strict Relevance Batching",
+                text: 'Push critical alerts in real-time. Bundle low-value updates into silent, scheduled "Daily Digests."',
+              },
+              {
+                num: "03",
+                title: "Granular Controls",
+                text: "Replace binary On/Off switches with user-defined preference logic for personal relevance filters.",
+              },
+            ].map((fix) => (
+              <div key={fix.num} className="fix-card">
+                <div
+                  className="mono"
+                  style={{
+                    fontSize: "0.7rem",
+                    color: "var(--accent-color)",
+                    marginBottom: "0.75rem",
+                    opacity: 0.6,
+                  }}
+                >
+                  {fix.num}
                 </div>
-              ))}
-            </div>
+                <h4 style={{ fontSize: "1.05rem", marginBottom: "0.6rem" }}>
+                  {fix.title}
+                </h4>
+                <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem" }}>
+                  {fix.text}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
+import { useIsMobile } from "./useIsMobile";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -10,11 +11,58 @@ if (typeof window !== "undefined") {
 
 export default function Footer() {
   const footerRef = useRef<HTMLElement>(null);
+  const ctaBtnRef = useRef<HTMLAnchorElement>(null);
+  const isMobile = useIsMobile();
 
+  // ─── Magnetic hover effect ───
+  useEffect(() => {
+    if (isMobile || !ctaBtnRef.current) return;
+
+    const btn = ctaBtnRef.current;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = btn.getBoundingClientRect();
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+
+      gsap.to(btn, {
+        x: x * 0.3,
+        y: y * 0.3,
+        duration: 0.4,
+        ease: "power2.out",
+      });
+    };
+
+    const handleMouseLeave = () => {
+      gsap.to(btn, {
+        x: 0,
+        y: 0,
+        duration: 0.6,
+        ease: "elastic.out(1, 0.5)",
+      });
+    };
+
+    btn.addEventListener("mousemove", handleMouseMove);
+    btn.addEventListener("mouseleave", handleMouseLeave);
+
+    return () => {
+      btn.removeEventListener("mousemove", handleMouseMove);
+      btn.removeEventListener("mouseleave", handleMouseLeave);
+    };
+  }, [isMobile]);
+
+  // ─── Split-letter stagger reveal ───
   useEffect(() => {
     if (!footerRef.current) return;
 
     const ctx = gsap.context(() => {
+      // Split the heading text into individual characters for stagger
+      const headingChars = gsap.utils.toArray<HTMLElement>(".footer-char");
+      if (headingChars.length > 0) {
+        gsap.set(headingChars, { opacity: 0, y: 30, rotateX: -45 });
+      }
+
+      // Reveal elements on scroll
       gsap.fromTo(
         ".footer-reveal",
         { y: 40, opacity: 0 },
@@ -30,10 +78,32 @@ export default function Footer() {
           },
         }
       );
+
+      // Characters stagger in after the general reveal
+      if (headingChars.length > 0) {
+        ScrollTrigger.create({
+          trigger: footerRef.current,
+          start: "top 80%",
+          once: true,
+          onEnter: () => {
+            gsap.to(headingChars, {
+              opacity: 1,
+              y: 0,
+              rotateX: 0,
+              stagger: 0.02,
+              duration: 0.8,
+              ease: "power4.out",
+              delay: 0.3,
+            });
+          },
+        });
+      }
     }, footerRef);
 
     return () => ctx.revert();
   }, []);
+
+  const headingText = "Ready to engineer better human experiences?";
 
   return (
     <footer
@@ -72,20 +142,46 @@ export default function Footer() {
             marginBottom: "1.5rem",
           }}
         >
-          Let's Build Something Together
+          Let&apos;s Build Something Together
         </div>
+
+        {/* Split-letter heading — word-aware wrapping */}
         <h2
           style={{
             fontSize: "clamp(2rem, 4vw, 3.5rem)",
             lineHeight: 1.15,
             marginBottom: "2rem",
             fontFamily: "var(--font-playfair)",
+            perspective: "800px",
           }}
         >
-          Ready to engineer better human experiences?
+          {headingText.split(" ").map((word, wi) => (
+            <span key={wi} style={{ display: "inline-block", whiteSpace: "nowrap" }}>
+              {word.split("").map((char, ci) => (
+                <span
+                  key={`${wi}-${ci}`}
+                  className="footer-char"
+                  style={{
+                    display: "inline-block",
+                    willChange: "transform, opacity",
+                    transformOrigin: "bottom center",
+                  }}
+                >
+                  {char}
+                </span>
+              ))}
+              {wi < headingText.split(" ").length - 1 && (
+                <span style={{ display: "inline-block", width: "0.3em" }}>{"\u00A0"}</span>
+              )}
+            </span>
+          ))}
         </h2>
+
+        {/* Magnetic CTA button */}
         <a
+          ref={ctaBtnRef}
           href="mailto:mailshivamjha007@gmail.com"
+          className="magnetic-btn"
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -98,17 +194,17 @@ export default function Footer() {
             fontSize: "0.8rem",
             textTransform: "uppercase",
             letterSpacing: "0.1em",
-            cursor: "none",
-            transition: "all 0.3s ease",
+            cursor: isMobile ? "auto" : "none",
+            willChange: "transform",
           }}
           onMouseEnter={(e) => {
+            if (isMobile) return;
             e.currentTarget.style.backgroundColor = "var(--accent-light)";
-            e.currentTarget.style.transform = "translateY(-2px)";
             e.currentTarget.style.boxShadow = "0 8px 30px rgba(15,76,129,0.3)";
           }}
           onMouseLeave={(e) => {
+            if (isMobile) return;
             e.currentTarget.style.backgroundColor = "var(--accent-color)";
-            e.currentTarget.style.transform = "translateY(0)";
             e.currentTarget.style.boxShadow = "none";
           }}
         >
@@ -182,7 +278,7 @@ export default function Footer() {
               rel="noopener noreferrer"
               style={{
                 color: "rgba(255,255,255,0.5)",
-                cursor: "none",
+                cursor: isMobile ? "auto" : "none",
                 transition: "color 0.3s ease",
               }}
               onMouseEnter={(e) => {

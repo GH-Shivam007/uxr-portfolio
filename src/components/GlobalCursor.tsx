@@ -2,8 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, useSpring, useMotionValue } from "framer-motion";
+import { useIsMobile } from "./useIsMobile";
 
 export default function GlobalCursor() {
+  const isMobile = useIsMobile();
   const [cursorType, setCursorType] = useState<"default" | "trusted" | "anxiety">("default");
 
   const mouseX = useMotionValue(0);
@@ -13,6 +15,9 @@ export default function GlobalCursor() {
   const springY = useSpring(mouseY, { stiffness: 300, damping: 25 });
 
   useEffect(() => {
+    // Don't attach any listeners on mobile
+    if (isMobile) return;
+
     const handleMouseMove = (e: MouseEvent) => {
       mouseX.set(e.clientX);
       mouseY.set(e.clientY);
@@ -29,18 +34,18 @@ export default function GlobalCursor() {
 
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, [mouseX, mouseY]);
+  }, [mouseX, mouseY, isMobile]);
 
-  // Vibration effect using a simple interval instead of GSAP rough() (which requires paid plugin)
+  // Vibration effect for anxiety cursor
   const [vibrationOffset, setVibrationOffset] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    if (cursorType !== "anxiety") {
+    if (cursorType !== "anxiety" || isMobile) {
       setVibrationOffset({ x: 0, y: 0 });
       return;
     }
 
-    const intensity = 0.36; // Based on "Unclear Reason" data percentage
+    const intensity = 0.36;
     const amplitude = 8 * intensity;
 
     const interval = setInterval(() => {
@@ -48,10 +53,13 @@ export default function GlobalCursor() {
         x: (Math.random() - 0.5) * 2 * amplitude,
         y: (Math.random() - 0.5) * 2 * amplitude,
       });
-    }, 40); // ~25fps vibration
+    }, 40);
 
     return () => clearInterval(interval);
-  }, [cursorType]);
+  }, [cursorType, isMobile]);
+
+  // Completely unmount on mobile — no DOM at all
+  if (isMobile) return null;
 
   const variants = {
     default: {

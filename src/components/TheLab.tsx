@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
 import BlockchainCrystal from "./BlockchainCrystal";
+import { useIsMobile } from "./useIsMobile";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -13,14 +14,40 @@ export default function TheLab() {
   const surakshaRef = useRef<HTMLDivElement>(null);
   const redactionMaskRef = useRef<HTMLDivElement>(null);
   const secondaryMaskRef = useRef<HTMLDivElement>(null);
+  const scanLineRef = useRef<HTMLDivElement>(null);
+  const docPanelRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
+  const [scanComplete, setScanComplete] = useState(false);
 
   useEffect(() => {
     if (!surakshaRef.current || !redactionMaskRef.current || !secondaryMaskRef.current)
       return;
 
     const ctx = gsap.context(() => {
-      // SURAKSHA glitchy clip-path timeline
-      const tl = gsap.timeline({
+      // ─── SCAN-LINE SWEEP: photocopier reveal ───
+      if (scanLineRef.current && docPanelRef.current) {
+        gsap.set(scanLineRef.current, { top: "-4px" });
+
+        const scanTl = gsap.timeline({
+          scrollTrigger: {
+            trigger: surakshaRef.current,
+            start: "top 70%",
+            end: "center 30%",
+            scrub: 1.5,
+            onLeave: () => setScanComplete(true),
+          },
+        });
+
+        // Scan line sweeps down the document
+        scanTl.to(scanLineRef.current, {
+          top: "100%",
+          duration: 1,
+          ease: "power1.inOut",
+        });
+      }
+
+      // ─── REDACTION with typewriter cursor ───
+      const redactionTl = gsap.timeline({
         scrollTrigger: {
           trigger: surakshaRef.current,
           start: "top 60%",
@@ -29,34 +56,38 @@ export default function TheLab() {
         },
       });
 
-      tl.to(redactionMaskRef.current, {
-        clipPath: "inset(0% 70% 0% 0%)",
-        duration: 0.2,
-        ease: "power4.in",
-      })
+      // Glitchy clip-path reveal — like a cursor typing across
+      redactionTl
         .to(redactionMaskRef.current, {
-          clipPath: "inset(0% 75% 0% 0%)",
+          clipPath: "inset(0% 70% 0% 0%)",
+          duration: 0.15,
+          ease: "steps(3)",
+        })
+        .to(redactionMaskRef.current, {
+          clipPath: "inset(0% 50% 0% 0%)",
           duration: 0.1,
+          ease: "steps(2)",
         })
         .to(redactionMaskRef.current, {
           clipPath: "inset(0% 30% 0% 0%)",
-          duration: 0.3,
-          ease: "power2.out",
+          duration: 0.2,
+          ease: "steps(4)",
         })
         .to(redactionMaskRef.current, {
-          clipPath: "inset(0% 35% 0% 0%)",
-          duration: 0.1,
+          clipPath: "inset(0% 10% 0% 0%)",
+          duration: 0.15,
+          ease: "steps(3)",
         })
         .to(redactionMaskRef.current, {
           clipPath: "inset(0% 0% 0% 0%)",
-          duration: 0.3,
+          duration: 0.1,
           ease: "power4.out",
         });
 
-      // Secondary redaction
+      // Secondary redaction — slight delay
       gsap.to(secondaryMaskRef.current, {
         clipPath: "inset(0% 0% 0% 0%)",
-        ease: "power2.inOut",
+        ease: "steps(8)",
         scrollTrigger: {
           trigger: surakshaRef.current,
           start: "40% center",
@@ -78,7 +109,7 @@ export default function TheLab() {
         zIndex: 2,
       }}
     >
-      {/* ─── PROJECT SURAKSHA ─── */}
+      {/* ─── PROJECT SURAKSHA — "DECLASSIFIED" ─── */}
       <section
         ref={surakshaRef}
         style={{
@@ -113,6 +144,7 @@ export default function TheLab() {
 
         <div style={{ display: "flex", justifyContent: "center" }}>
           <div
+            ref={docPanelRef}
             className="glass-panel"
             style={{
               width: "100%",
@@ -123,12 +155,50 @@ export default function TheLab() {
               backgroundColor: "var(--bg-primary)",
             }}
           >
+            {/* Scan Line */}
+            <div
+              ref={scanLineRef}
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                height: "4px",
+                background: "linear-gradient(to bottom, transparent, var(--accent-vivid), transparent)",
+                boxShadow: "0 0 20px var(--accent-glow), 0 0 60px var(--accent-glow)",
+                zIndex: 10,
+                pointerEvents: "none",
+                opacity: scanComplete ? 0 : 0.8,
+                transition: "opacity 0.5s ease",
+              }}
+            />
+
+            {/* CRT noise overlay — clears after scan */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: `repeating-linear-gradient(
+                  0deg,
+                  transparent,
+                  transparent 2px,
+                  rgba(0, 0, 0, 0.03) 2px,
+                  rgba(0, 0, 0, 0.03) 4px
+                )`,
+                pointerEvents: "none",
+                zIndex: 5,
+                opacity: scanComplete ? 0 : 1,
+                transition: "opacity 1s ease",
+              }}
+            />
+
             <div
               className="mono"
               style={{
                 fontSize: "clamp(0.9rem, 1.2vw, 1.15rem)",
                 lineHeight: 2.8,
                 color: "var(--text-primary)",
+                position: "relative",
+                zIndex: 1,
               }}
             >
               CONFIDENTIAL REPORT
@@ -191,7 +261,7 @@ export default function TheLab() {
           overflow: "clip",
         }}
       >
-        {/* Sticky WebGL Background */}
+        {/* Sticky WebGL / CSS Crystal Background */}
         <div
           style={{
             position: "sticky",
@@ -242,7 +312,7 @@ export default function TheLab() {
             <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem" }}>
               A blockchain-based platform built on Polygon and Solidity to
               democratize real estate investment in India. Micro-investments as
-              low as 1% of a property's value.
+              low as 1% of a property&apos;s value.
             </p>
           </div>
         </div>

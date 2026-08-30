@@ -11,6 +11,7 @@ import ResearchDeck from "./ResearchDeck";
 import TheLab from "./TheLab";
 import Footer from "./Footer";
 import GlobalCursor from "./GlobalCursor";
+import { useIsMobile } from "./useIsMobile";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -21,23 +22,28 @@ export default function PortfolioApp() {
   const loaderNameRef = useRef<HTMLHeadingElement>(null);
   const heroNameRef = useRef<HTMLHeadingElement>(null);
   const rafCallbackRef = useRef<((time: number) => void) | null>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
-    // Initialize Lenis
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      smoothWheel: true,
-    });
+    let lenis: Lenis | null = null;
 
-    lenis.on("scroll", ScrollTrigger.update);
+    // Only init Lenis on desktop — native scroll is better for touch devices
+    if (!isMobile) {
+      lenis = new Lenis({
+        duration: 1.2,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        smoothWheel: true,
+      });
 
-    const rafCallback = (time: number) => {
-      lenis.raf(time * 1000);
-    };
-    rafCallbackRef.current = rafCallback;
-    gsap.ticker.add(rafCallback);
-    gsap.ticker.lagSmoothing(0);
+      lenis.on("scroll", ScrollTrigger.update);
+
+      const rafCallback = (time: number) => {
+        lenis!.raf(time * 1000);
+      };
+      rafCallbackRef.current = rafCallback;
+      gsap.ticker.add(rafCallback);
+      gsap.ticker.lagSmoothing(0);
+    }
 
     // Scroll progress spine
     const updateSpine = () => {
@@ -66,9 +72,9 @@ export default function PortfolioApp() {
       if (rafCallbackRef.current) {
         gsap.ticker.remove(rafCallbackRef.current);
       }
-      lenis.destroy();
+      if (lenis) lenis.destroy();
     };
-  }, []);
+  }, [isMobile]);
 
   // Morph animation: move loader text to hero position
   useEffect(() => {
@@ -142,12 +148,12 @@ export default function PortfolioApp() {
           width: "100%",
           overflowX: "hidden",
           backgroundColor: "var(--bg-primary)",
-          cursor: "none",
+          cursor: isMobile ? "auto" : "none",
           opacity: phase === "loading" ? 0 : 1,
           transition: "opacity 0.8s ease",
         }}
       >
-        <GlobalCursor />
+        {!isMobile && <GlobalCursor />}
         <Nav />
         <VerticalIntro visible={phase !== "loading"} />
         <div className="section-divider" />

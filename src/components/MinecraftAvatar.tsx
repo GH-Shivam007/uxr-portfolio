@@ -2,13 +2,17 @@
 
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { useIsMobile } from "./useIsMobile";
 
 export default function MinecraftAvatar() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    containerRef.current.innerHTML = ''; // Prevent duplicate canvases from React Strict Mode
+    // Don't initialize Three.js on mobile — the container is hidden via CSS
+    // but without this check, Three.js still boots up and eats GPU
+    if (!containerRef.current || isMobile) return;
+    containerRef.current.innerHTML = '';
 
     // 1. Scene Setup
     const scene = new THREE.Scene();
@@ -17,9 +21,8 @@ export default function MinecraftAvatar() {
     camera.position.y = 0;
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    // Match container size. We will make it a 400x400 square or let it resize.
     renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Capped at 1.5
     containerRef.current.appendChild(renderer.domElement);
 
     // 2. Lighting
@@ -36,10 +39,10 @@ export default function MinecraftAvatar() {
 
     // 3. Materials
     const glassMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff, // Alabaster white base
+      color: 0xffffff,
       metalness: 0.2,
       roughness: 0.1,
-      transmission: 0.6, // Glassy
+      transmission: 0.6,
       thickness: 0.5,
       clearcoat: 1.0,
       clearcoatRoughness: 0.1
@@ -67,7 +70,7 @@ export default function MinecraftAvatar() {
 
     // Head Group (so we can rotate head + visor together)
     const headGroup = new THREE.Group();
-    headGroup.position.y = 1.25; // Sit on top of torso
+    headGroup.position.y = 1.25;
 
     const headGeo = new THREE.BoxGeometry(1, 1, 1);
     const head = new THREE.Mesh(headGeo, glassMaterial);
@@ -76,7 +79,7 @@ export default function MinecraftAvatar() {
     // Visor (Sapphire Blue)
     const visorGeo = new THREE.BoxGeometry(0.8, 0.25, 0.1);
     const visor = new THREE.Mesh(visorGeo, sapphireMaterial);
-    visor.position.set(0, 0.1, 0.51); // Stick out the front
+    visor.position.set(0, 0.1, 0.51);
     headGroup.add(visor);
 
     // Eyes (Jet Black accents)
@@ -103,7 +106,7 @@ export default function MinecraftAvatar() {
 
     // Legs
     const legGeo = new THREE.BoxGeometry(0.45, 1.5, 0.45);
-    const leftLeg = new THREE.Mesh(legGeo, blackMaterial); // Black pants/legs for contrast
+    const leftLeg = new THREE.Mesh(legGeo, blackMaterial);
     leftLeg.position.set(-0.25, -1.5, 0);
     avatarGroup.add(leftLeg);
 
@@ -121,16 +124,12 @@ export default function MinecraftAvatar() {
     let targetBodyRotationY = 0;
 
     const onMouseMove = (event: MouseEvent) => {
-      // Normalize mouse coordinates from -1 to 1
       const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
       const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
 
-      // Head tracks mouse aggressively
-      targetHeadRotationY = mouseX * (Math.PI / 3); // max 60 deg
-      targetHeadRotationX = -mouseY * (Math.PI / 4); // max 45 deg
-
-      // Body tracks mouse subtly
-      targetBodyRotationY = mouseX * (Math.PI / 6); // max 30 deg
+      targetHeadRotationY = mouseX * (Math.PI / 3);
+      targetHeadRotationX = -mouseY * (Math.PI / 4);
+      targetBodyRotationY = mouseX * (Math.PI / 6);
     };
     window.addEventListener("mousemove", onMouseMove);
 
@@ -152,15 +151,12 @@ export default function MinecraftAvatar() {
     const renderLoop = () => {
       time += 0.05;
 
-      // Smooth interpolation for head and body rotation (Lerp)
       headGroup.rotation.y += (targetHeadRotationY - headGroup.rotation.y) * 0.1;
       headGroup.rotation.x += (targetHeadRotationX - headGroup.rotation.x) * 0.1;
       avatarGroup.rotation.y += (targetBodyRotationY - avatarGroup.rotation.y) * 0.05;
 
-      // Gentle floating bob
       avatarGroup.position.y = 0.5 + Math.sin(time * 0.5) * 0.2;
 
-      // Subtle arm swing
       leftArm.rotation.x = Math.sin(time) * 0.1;
       rightArm.rotation.x = -Math.sin(time) * 0.1;
 
@@ -190,7 +186,7 @@ export default function MinecraftAvatar() {
       sapphireMaterial.dispose();
       blackMaterial.dispose();
     };
-  }, []);
+  }, [isMobile]);
 
   return (
     <div 
@@ -198,7 +194,7 @@ export default function MinecraftAvatar() {
       style={{ 
         width: "100%", 
         height: "100%", 
-        pointerEvents: "none" // Let clicks pass through if needed
+        pointerEvents: "none"
       }} 
     />
   );
